@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Outgunned - Конструктор Персонажа</title>
+    <!-- Подключение стилей Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <!-- Подключение React -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Подключение Babel (для работы кода прямо в браузере) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Встроенные иконки интерфейса
+        const Printer = ({className}) => <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>;
+        const Moon = ({className}) => <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>;
+        const Sun = ({className}) => <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>;
+        const ChevronLeft = ({className}) => <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>;
+        const ChevronRight = ({className}) => <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>;
+        const Check = ({className}) => <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>;
+
+        const TRANSLATIONS = {
+            brawn: "Мускулы", nerves: "Нервы", smooth: "Шарм", focus: "Фокус", crime: "Криминал",
+            endure: "Выносливость", fight: "Бой", force: "Сила", stunt: "Трюки",
+            cool: "Хладнокровие", drive: "Вождение", shoot: "Стрельба", survival: "Выживание",
+            flirt: "Флирт", leadership: "Лидерство", speech: "Убеждение", style: "Стиль",
+            detect: "Расследование", heal: "Лечение", fix: "Ремонт", know: "Знания",
+            awareness: "Внимательность", dexterity: "Ловкость", stealth: "Скрытность", streetwise: "Связи"
+        };
+
+        const SKILLS_BY_ATTR = {
+            brawn: ['endure', 'fight', 'force', 'stunt'],
+            nerves: ['cool', 'drive', 'shoot', 'survival'],
+            smooth: ['flirt', 'leadership', 'speech', 'style'],
+            focus: ['detect', 'heal', 'fix', 'know'],
+            crime: ['awareness', 'dexterity', 'stealth', 'streetwise']
+        };
+
+        const FEATS_DATA = {
+            "Hard to Kill": { name: "Крепкий орешек", desc: "Когда вы заполняете ячейку 'Плохо' (Bad), вы получаете 1 Адреналин и +1 к следующему броску." },
+            "Hunter": { name: "Охотник", desc: "Бесплатный переброс при выслеживании животных, ориентировании или прятках в дикой природе." },
+            "Intimidation": { name: "Запугивание", desc: "Бесплатный переброс при запугивании или допросе." },
+            "Marksman": { name: "Стрелок", desc: "Бесплатный переброс при использовании, ремонте или обращении с винтовкой, дробовиком, пистолетом-пулеметом." },
+            "Military Background": { name: "Военное прошлое", desc: "Бесплатный переброс бросков на военные знания, координацию стратегии или воспоминания о тренировках." },
+            "That's All?": { name: "И это всё?", desc: "Бесплатный переброс на демонстрацию храбрости, сопротивление боли и угрозам." },
+            "High Culture": { name: "Высокая культура", desc: "Бесплатный переброс на общую культуру, литературу, историю и географию." },
+            "I'll Make a Phone Call": { name: "Я позвоню", desc: "[Полный ход] Вы звоните контакту за информацией, услугой, транспортом или до 3 Наличных на следующем привале." },
+            "Lie to Me": { name: "Обмани меня", desc: "Бесплатный переброс на понимание намерений или распознавание лжи." },
+            "Mechanic": { name: "Механик", desc: "Бесплатный переброс при сборке или ремонте транспорта и снаряжения." },
+            "Physician": { name: "Врач", desc: "Бесплатный переброс на постановку диагноза, операции или снятие состояний (например, Ранение)." },
+            "Silver Tongue": { name: "Подвешенный язык", desc: "Бесплатный переброс на ложь, убеждение, компромиссы и торговлю." },
+            "Combo": { name: "Комбо", desc: "После удара по врагу потратьте 1 Адреналин, чтобы нанести еще 1 Урон. Можно повторять." },
+            "Counter": { name: "Контрудар", desc: "Реагируйте на врага броском Мускулы+Бой вместо требуемого. Вы игнорируете штрафы -1." },
+            "Flying Kick": { name: "Удар в прыжке", desc: "Атака врага на Ближней или Средней дистанции получает +1. Всегда можно атаковать врукопашную вблизи без Адреналина." },
+            "Martial Arts": { name: "Боевые искусства", desc: "Бесплатный переброс всех бросков Действий и Реакций в ближнем бою." },
+            "Punch Reload": { name: "Перезарядка ударом", desc: "[Быстрое действие] Раз за бой, провалив Реакцию, встаньте и сразу получите 1 Адреналин." },
+            "Stunt": { name: "Трюкач", desc: "Бесплатный переброс на акробатику и трюки." },
+            "Car Jump": { name: "Прыжок на машине", desc: "[Полный ход] Заставьте транспорт прыгнуть через препятствие. При приземлении теряется 1 Броня." },
+            "Crazy Stunt": { name: "Безумный трюк", desc: "[Полный ход] Уничтожьте транспорт и бросьте монетку. Орел: Директор заполняет 1 Потребность. Решка: 5 Потребностей." },
+            "Full Throttle!": { name: "Полный газ!", desc: "Игнорируете штрафы Нервозности и Макс. Скорости. При достижении Макс. Скорости получаете 1 Адреналин." },
+            "Proven Driver": { name: "Опытный водитель", desc: "Выберите тип транспорта. Бесплатный переброс при вождении и починке этого типа." },
+            "Spinout": { name: "Занос", desc: "[Полный ход] Все Герои пропускают Реакцию. Бросьте монетку. Орел: +1 Скорость. Решка: -1 Скорость." },
+            "Get Down!": { name: "Ложись!", desc: "[Полный ход] Вы и союзник уклоняетесь от пуль или машины без броска кубиков." },
+            "Gunslinger": { name: "Стрелок из пистолета", desc: "Бесплатный переброс при использовании, ремонте или обращении с пистолетом или револьвером." },
+            "Pep Talk": { name: "Вдохновляющая речь", desc: "Бесплатный переброс при воодушевлении или координации других." },
+            "Selfless": { name: "Самоотверженность", desc: "Бесплатный переброс при защите и спасении других." },
+            "Hacker": { name: "Хакер", desc: "Бесплатный переброс на компьютеры, взлом или обход киберзащиты." },
+            "Intuition": { name: "Интуиция", desc: "[Быстрое действие] Попросите Директора дать подсказку или найти Слабое Место врага." },
+            "Mastermind": { name: "Гений", desc: "Повторите любой один бросок. Игнорируйте все штрафы -1." },
+            "Outsmart": { name: "Перехитрить", desc: "Сделайте любой бросок, используя Знания вместо требуемого Навыка." },
+            "Scientist": { name: "Ученый", desc: "Выберите науку (инженерия, химия). Бесплатный переброс на эту дисциплину." },
+            "Detective": { name: "Детектив", desc: "Бесплатный переброс при поиске улик, следов или обыске комнаты." },
+            "Reporter": { name: "Журналист", desc: "Бесплатный переброс при интервьюировании, сборе информации и поиске контактов." },
+            "Shadow": { name: "Тень", desc: "Бесплатный переброс при прятках, скрытности или слежке." },
+            "Always Prepared": { name: "Всегда готов", desc: "[Быстрое действие] Достаньте полезный предмет, информацию или скрытое оружие." },
+            "Lockpick": { name: "Взломщик", desc: "Бесплатный переброс при взломе замков, дверей или сейфов." },
+            "Pickpocket": { name: "Карманник", desc: "Бесплатный переброс при краже у кого-либо." },
+            "Heartbreaker": { name: "Сердцеед", desc: "Бесплатный переброс при соблазнении или создании хорошего впечатления." },
+            "Master of Disguise": { name: "Мастер маскировки", desc: "Бесплатный переброс на маскировку и смену личности." },
+            "Parkour": { name: "Паркур", desc: "Бесплатный переброс при прыжках, акробатике или смягчении падения." },
+            "Artist": { name: "Артист", desc: "Выберите вид искусства. Бесплатный переброс на этот вид искусства." },
+            "Cash Flow": { name: "Денежный поток", desc: "Начните с 3 Наличными. Получайте 1 в начале каждой Сессии." },
+            "Knife Thrower": { name: "Метатель ножей", desc: "Получите +1 при использовании метательного оружия." },
+            "Bodybuilder": { name: "Бодибилдер", desc: "Бесплатный переброс при подъеме, переноске или разрушении чего-либо." },
+            "Archer": { name: "Лучник", desc: "Бесплатный переброс при использовании или обращении с луком." },
+            "Head on a Swivel": { name: "Голова на шарнире", desc: "Бесплатный переброс на предвидение опасности или поиск скрытых врагов." }
+        };
+
+        const ROLES_DATA = [
+            {
+                id: "commando", name: "Коммандос", ref: "Джон Мэтрикс, Сара Коннор, Джон Рэмбо",
+                desc: "Элитный солдат, ветеран или эксперт по выживанию. Выкованы в пылу битвы и встречают опасность лицом к лицу.",
+                attr: "brawn",
+                skills: ["endure", "fight", "force", "cool", "shoot", "survival", "leadership", "fix", "awareness", "stealth"],
+                feats: ["Hard to Kill", "Hunter", "Intimidation", "Marksman", "Military Background", "That's All?"]
+            },
+            {
+                id: "nobody", name: "Никто", ref: "Джон Макклейн (Крепкий орешек 3), Эггси (Kingsman), Хоббиты",
+                desc: "Обычный человек, оказавшийся не в то время не в том месте, но готовый на всё ради правого дела.",
+                attr: "smooth",
+                skills: ["fight", "shoot", "survival", "leadership", "speech", "detect", "fix", "heal", "know", "dexterity"],
+                feats: ["High Culture", "I'll Make a Phone Call", "Lie to Me", "Mechanic", "Physician", "Silver Tongue"]
+            },
+            {
+                id: "fighter", name: "Боец", ref: "Рокки Бальбоа, Инспектор Ли (Час Пик), Черная Вдова",
+                desc: "Мастер боевых искусств, боксер или вышибала, решающий проблемы голыми руками.",
+                attr: "brawn",
+                skills: ["endure", "fight", "force", "stunt", "cool", "flirt", "leadership", "style", "heal", "dexterity"],
+                feats: ["Combo", "Counter", "Flying Kick", "Hard to Kill", "Martial Arts", "Punch Reload"]
+            },
+            {
+                id: "ace", name: "Ас", ref: "Маверик (Top Gun), Доминик Торетто, Водитель (Малыш на драйве)",
+                desc: "Гонщик, пилот или курьер, живущий на скорости ради адреналина погони.",
+                attr: "nerves",
+                skills: ["stunt", "cool", "drive", "shoot", "flirt", "style", "fix", "awareness", "dexterity", "streetwise"],
+                feats: ["Car Jump", "Crazy Stunt", "Full Throttle!", "Mechanic", "Proven Driver", "Spinout"]
+            },
+            {
+                id: "agent", name: "Агент", ref: "Джон Макклейн (Крепкий орешек), Аксель Фоули, Майк Лоури (Плохие парни)",
+                desc: "Полицейский, спецагент или пожарный. Защитники с железными нервами, готовые прийти на помощь.",
+                attr: "nerves",
+                skills: ["endure", "fight", "force", "cool", "shoot", "survival", "leadership", "fix", "awareness", "stealth"],
+                feats: ["Get Down!", "Gunslinger", "Hard to Kill", "Lie to Me", "Pep Talk", "Selfless"]
+            },
+            {
+                id: "brain", name: "Мозг", ref: "Q (Джеймс Бонд), Ричард Кимбл (Беглец), Ганнибал Смит (Команда А)",
+                desc: "Ученый, хакер или гений-стратег. Используют интеллект и технологии вместо грубой силы.",
+                attr: "focus",
+                skills: ["drive", "leadership", "speech", "style", "detect", "fix", "heal", "know", "dexterity", "stealth"],
+                feats: ["Hacker", "High Culture", "Intuition", "Mastermind", "Outsmart", "Scientist"]
+            },
+            {
+                id: "sleuth", name: "Сыщик", ref: "Брайан Миллс (Заложница), Рик Декард (Бегущий по лезвию), Коломбо",
+                desc: "Частный детектив или репортер, умеющий замечать детали и задавать правильные вопросы.",
+                attr: "focus",
+                skills: ["endure", "stunt", "cool", "drive", "shoot", "detect", "know", "awareness", "stealth", "streetwise"],
+                feats: ["Detective", "I'll Make a Phone Call", "Intimidation", "Marksman", "Reporter", "Shadow"]
+            },
+            {
+                id: "criminal", name: "Преступник", ref: "Дэнни Оушен (Одиннадцать друзей Оушена), Божья коровка (Быстрее пули)",
+                desc: "Вор, взломщик или бывший зек. Предпочитают держаться в тени и избегать закона.",
+                attr: "crime",
+                skills: ["force", "stunt", "drive", "shoot", "survival", "speech", "awareness", "dexterity", "stealth", "streetwise"],
+                feats: ["Always Prepared", "Gunslinger", "I'll Make a Phone Call", "Lockpick", "Pickpocket", "Silver Tongue"]
+            },
+            {
+                id: "spy", name: "Шпион", ref: "Джеймс Бонд, Итан Хант (Миссия невыполнима), Гарри Харт (Kingsman)",
+                desc: "Секретный агент с лицензией на убийство, шармом и элегантностью.",
+                attr: "crime",
+                skills: ["endure", "fight", "stunt", "cool", "drive", "shoot", "flirt", "detect", "awareness", "stealth"],
+                feats: ["Gunslinger", "Heartbreaker", "Martial Arts", "Master of Disguise", "Parkour", "Shadow"]
+            },
+            {
+                id: "face", name: "Лицо", ref: "Дэнни Оушен, Сол Гудман (Во все тяжкие), Джек Воробей",
+                desc: "Обаятельный болтун, актер или аферист. Решает проблемы словами, а не кулаками.",
+                attr: "smooth",
+                skills: ["flirt", "leadership", "speech", "style", "detect", "heal", "know", "dexterity", "stealth", "streetwise"],
+                feats: ["Artist", "Cash Flow", "Heartbreaker", "High Culture", "Master of Disguise", "Silver Tongue"]
+            }
+        ];
+
+        const TROPES_DATA = [
+            { id: "bad_to_the_bone", name: "Плохой до мозга костей", attrs: ["nerves", "crime"], skills: ["force", "stunt", "drive", "shoot", "flirt", "style", "dexterity", "streetwise"], feats: ["Knife Thrower", "Parkour", "Proven Driver", "Shadow"] },
+            { id: "cheater", name: "Обманщик", attrs: ["nerves", "smooth"], skills: ["fight", "cool", "drive", "shoot", "flirt", "detect", "know", "streetwise"], feats: ["Detective", "Gunslinger", "Proven Driver", "Silver Tongue"] },
+            { id: "cool_but_distressed", name: "Крутой, но проблемный", attrs: ["smooth", "crime"], skills: ["stunt", "cool", "shoot", "speech", "style", "dexterity", "stealth", "streetwise"], feats: ["Pickpocket", "Lockpick", "Shadow", "Silver Tongue"] },
+            { id: "diehard", name: "Несгибаемый", attrs: ["brawn", "nerves"], skills: ["endure", "force", "fight", "cool", "drive", "shoot", "leadership", "heal"], feats: ["Gunslinger", "Hard to Kill", "Martial Arts", "Military Background"] },
+            { id: "free_spirit", name: "Свободный дух", attrs: ["brawn", "crime"], skills: ["fight", "stunt", "drive", "survival", "style", "fix", "stealth", "streetwise"], feats: ["Artist", "Parkour", "Pickpocket", "That's All?"] },
+            { id: "genius_bruiser", name: "Умный громила", attrs: ["brawn", "focus"], skills: ["endure", "force", "fight", "leadership", "speech", "fix", "know", "heal"], feats: ["Bodybuilder", "High Culture", "Scientist", "That's All?"] },
+            { id: "good_samaritan", name: "Добрый самаритянин", attrs: ["smooth", "focus"], skills: ["endure", "cool", "shoot", "speech", "style", "detect", "heal", "know"], feats: ["Get Down!", "High Culture", "Physician", "Selfless"] },
+            { id: "hot_stuff", name: "Красавчик", attrs: ["smooth", "crime"], skills: ["fight", "drive", "flirt", "style", "detect", "know", "awareness", "dexterity"], feats: ["Artist", "Cash Flow", "Heartbreaker", "I'll Make a Phone Call"] },
+            { id: "hunk", name: "Здоровяк", attrs: ["brawn", "smooth"], skills: ["endure", "force", "fight", "stunt", "survival", "flirt", "leadership", "style"], feats: ["Bodybuilder", "Combo", "Intimidation", "Selfless"] },
+            { id: "jerk_gold", name: "Хам с добрым сердцем", attrs: ["brawn", "smooth"], skills: ["fight", "survival", "flirt", "speech", "style", "dexterity", "stealth", "streetwise"], feats: ["Heartbreaker", "Martial Arts", "Parkour", "Silver Tongue"] },
+            { id: "boy_scout", name: "Последний бойскаут", attrs: ["brawn", "nerves"], skills: ["endure", "stunt", "cool", "shoot", "survival", "flirt", "fix", "stealth"], feats: ["Hard to Kill", "Hunter", "Military Background", "Selfless"] },
+            { id: "leader", name: "Лидер", attrs: ["nerves", "focus"], skills: ["endure", "cool", "shoot", "survival", "leadership", "detect", "heal", "know"], feats: ["Always Prepared", "Head on a Swivel", "Get Down!", "Mastermind"] },
+            { id: "lone_wolf", name: "Одинокий волк", attrs: ["brawn", "crime"], skills: ["force", "fight", "stunt", "cool", "survival", "flirt", "leadership", "streetwise"], feats: ["Archer", "Head on a Swivel", "Martial Arts", "That's All?"] },
+            { id: "mentor", name: "Наставник", attrs: ["smooth", "focus"], skills: ["endure", "cool", "survival", "leadership", "speech", "heal", "know", "awareness"], feats: ["Always Prepared", "Mastermind", "Pep Talk", "Silver Tongue"] },
+            { id: "neurotic_geek", name: "Нервный гик", attrs: ["focus", "crime"], skills: ["drive", "speech", "detect", "fix", "know", "awareness", "dexterity", "stealth"], feats: ["Hacker", "Intuition", "Outsmart", "Scientist"] },
+            { id: "party_killer", name: "Душнила", attrs: ["nerves", "crime"], skills: ["force", "stunt", "cool", "shoot", "leadership", "awareness", "stealth", "streetwise"], feats: ["Head on a Swivel", "Marksman", "Mastermind", "Pep Talk"] },
+            { id: "sidekick", name: "Верный напарник", attrs: ["nerves", "focus"], skills: ["drive", "shoot", "survival", "speech", "heal", "fix", "dexterity", "stealth"], feats: ["Get Down!", "Mechanic", "Physician", "Proven Driver"] },
+            { id: "vigilante", name: "Линчеватель", attrs: ["brawn", "focus"], skills: ["fight", "stunt", "leadership", "detect", "fix", "awareness", "stealth", "streetwise"], feats: ["Intimidation", "Martial Arts", "Parkour", "Shadow"] }
+        ];
+
+        const App = () => {
+            const [darkMode, setDarkMode] = useState(false);
+            const [step, setStep] = useState(0);
+
+            // Состояние персонажа
+            const [role, setRole] = useState(null);
+            const [roleFeats, setRoleFeats] = useState([]);
+            const [trope, setTrope] = useState(null);
+            const [tropeAttr, setTropeAttr] = useState(null);
+            const [tropeFeat, setTropeFeat] = useState(null);
+            const [age, setAge] = useState('Adult');
+            const [freeSkills, setFreeSkills] = useState({});
+            const [oldFeat, setOldFeat] = useState(null);
+
+            useEffect(() => {
+                if (darkMode) document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+            }, [darkMode]);
+
+            // Вычисляем навыки и атрибуты
+            const currentAttributes = { brawn: 2, nerves: 2, smooth: 2, focus: 2, crime: 2 };
+            const currentSkills = {};
+            Object.keys(SKILLS_BY_ATTR).forEach(attr => SKILLS_BY_ATTR[attr].forEach(s => currentSkills[s] = 1));
+
+            if (role) {
+                currentAttributes[role.attr] += 1;
+                role.skills.forEach(s => currentSkills[s] += 1);
+            }
+
+            if (trope && tropeAttr) {
+                currentAttributes[tropeAttr] += 1;
+                trope.skills.forEach(s => currentSkills[s] += 1);
+            }
+
+            Object.entries(freeSkills).forEach(([skill, val]) => {
+                currentSkills[skill] += val;
+            });
+
+            const freeSkillsSpent = Object.values(freeSkills).reduce((a, b) => a + b, 0);
+
+            const handleSkillChange = (skill, delta) => {
+                const current = currentSkills[skill];
+                const base = current - (freeSkills[skill] || 0);
+                const newValue = (freeSkills[skill] || 0) + delta;
+
+                if (delta > 0) {
+                    if (freeSkillsSpent >= 2) return;
+                    if (base + newValue > 3) return; 
+                }
+                if (newValue < 0) return;
+
+                setFreeSkills(prev => ({ ...prev, [skill]: newValue }));
+            };
+
+            const toggleRoleFeat = (featId) => {
+                if (roleFeats.includes(featId)) {
+                    setRoleFeats(roleFeats.filter(id => id !== featId));
+                } else {
+                    const maxFeats = age === 'Young' ? 1 : 2;
+                    if (roleFeats.length < maxFeats) setRoleFeats([...roleFeats, featId]);
+                }
+            };
+
+            const resetTropeAttr = (newTrope) => {
+                setTropeAttr(null);
+                setTropeFeat(null);
+                if (role && newTrope.attrs.includes(role.attr)) {
+                    const availableAttr = newTrope.attrs.find(a => a !== role.attr);
+                    setTropeAttr(availableAttr);
+                }
+            };
+
+            const oldFeatOptions = [];
+            if (role && trope) {
+                const availableRoleFeats = role.feats.filter(f => !roleFeats.includes(f));
+                const availableTropeFeats = trope.feats.filter(f => f !== tropeFeat);
+                oldFeatOptions.push(...availableRoleFeats, ...availableTropeFeats);
+            }
+
+            const canProceed = () => {
+                if (step === 1) return role !== null && roleFeats.length === (age === 'Young' ? 1 : 2);
+                if (step === 2) return trope !== null && tropeAttr !== null && tropeFeat !== null;
+                if (step === 3) return freeSkillsSpent === 2 && (age !== 'Old' || oldFeat !== null);
+                return true;
+            };
+
+            const nextStep = () => { if (canProceed() && step < 4) setStep(step + 1); };
+            const prevStep = () => { if (step > 0) setStep(step - 1); };
+
+            const renderSkillDots = (val) => (
+                <div className="flex gap-1">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className={`w-3 h-3 rounded-full border border-gray-400 dark:border-gray-600 ${i <= val ? 'bg-red-600 border-red-600' : ''}`} />
+                    ))}
+                </div>
+            );
+
+            const renderFeatCard = (featId, isSelected, onClick) => {
+                const feat = FEATS_DATA[featId];
+                if (!feat) return null;
+                return (
+                    <div key={featId} onClick={onClick} className={`p-4 border rounded-xl cursor-pointer transition-all ${isSelected ? 'border-red-600 bg-red-50 dark:bg-red-900/20 shadow-md' : 'border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-700'}`}>
+                        <div className="flex justify-between items-center mb-2">
+                            <h4 className="font-bold text-gray-900 dark:text-white">{feat.name}</h4>
+                            {isSelected && <Check className="w-5 h-5 text-red-600" />}
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{feat.desc}</p>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans pb-24 print:pb-0 print:bg-white print:text-black">
+                    {/* Header */}
+                    <div className="sticky top-0 z-50 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 print:hidden">
+                        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+                            <h1 className="text-xl font-black tracking-wider uppercase">OUTGUNNED <span className="text-red-600">Constructor</span></h1>
+                            <div className="flex gap-4 items-center">
+                                <span className="text-sm font-bold text-gray-500">ШАГ {step}/4</span>
+                                <button onClick={() => window.print()} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full" title="Печать">
+                                    <Printer className="w-5 h-5" />
+                                </button>
+                                <button onClick={() => setDarkMode(!darkMode)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
+                                    {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-w-4xl mx-auto px-4 py-8">
+                        {step === 0 && (
+                            <div className="text-center space-y-8 animate-fadeIn">
+                                <div className="max-w-2xl mx-auto p-12 bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-700">
+                                    <h2 className="text-4xl font-black mb-6 uppercase tracking-tight">Создай своего <span className="text-red-600">Героя боевика</span></h2>
+                                    <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 leading-relaxed">Добро пожаловать в конструктор персонажей для НРИ Outgunned. Следуй шагам, выбирай архетипы, вдохновленные классикой кино, и готовься к адреналиновому экшену.</p>
+                                    <button onClick={() => setStep(1)} className="px-8 py-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-lg transition-transform transform hover:scale-105 shadow-lg shadow-red-600/30">Начать создание</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {step === 1 && (
+                            <div className="space-y-6 animate-fadeIn">
+                                <h2 className="text-2xl font-black uppercase border-l-4 border-red-600 pl-4 mb-2">Выберите Роль</h2>
+                                <p className="text-gray-600 dark:text-gray-400 mb-6">Роль определяет ваш основной профиль, базовое снаряжение и даёт 1 очко Атрибута и 10 очков Навыков.</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {ROLES_DATA.map(r => (
+                                        <div key={r.id} onClick={() => { setRole(r); setRoleFeats([]); resetTropeAttr(trope || {attrs:[]}); }} className={`p-5 rounded-2xl border-2 cursor-pointer transition-all ${role?.id === r.id ? 'border-red-600 bg-red-50 dark:bg-red-900/10 shadow-lg' : 'border-gray-200 dark:border-gray-700 hover:border-red-400 dark:bg-gray-800'}`}>
+                                            <h3 className="text-xl font-bold mb-1">{r.name}</h3>
+                                            <p className="text-xs font-semibold text-red-600 mb-3 uppercase tracking-wider">Примеры: {r.ref}</p>
+                                            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{r.desc}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                                {role && (
+                                    <div className="mt-8 p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+                                        <h3 className="text-lg font-bold mb-4">Выберите Черты ({age === 'Young' ? 1 : 2} шт.)</h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {role.feats.map(featId => renderFeatCard(featId, roleFeats.includes(featId), () => toggleRoleFeat(featId)))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {step === 2 && (
+                            <div className="space-y-6 animate-fadeIn">
+                                <h2 className="text-2xl font-black uppercase border-l-4 border-red-600 pl-4 mb-2">Выберите Амплуа (Trope)</h2>
+                                <p className="text-gray-600 dark:text-gray-400 mb-6">Амплуа добавляет вашему герою характер. Оно даёт 1 очко Атрибута и 8 очков Навыков.</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                                    {TROPES_DATA.map(t => (
+                                        <div key={t.id} onClick={() => { setTrope(t); resetTropeAttr(t); }} className={`p-5 rounded-2xl border-2 cursor-pointer transition-all ${trope?.id === t.id ? 'border-red-600 bg-red-50 dark:bg-red-900/10 shadow-lg' : 'border-gray-200 dark:border-gray-700 hover:border-red-400 dark:bg-gray-800'}`}>
+                                            <h3 className="text-xl font-bold mb-2">{t.name}</h3>
+                                            <p className="text-xs text-gray-500 mb-1">Доступные атрибуты: {t.attrs.map(a => TRANSLATIONS[a]).join(' или ')}</p>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {trope && (
+                                    <div className="mt-8 p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-8">
+                                        <div>
+                                            <h3 className="text-lg font-bold mb-4">Бонусный Атрибут Амплуа</h3>
+                                            {role && trope.attrs.includes(role.attr) ? (
+                                                <p className="text-sm p-4 bg-gray-100 dark:bg-gray-700 rounded-xl">Поскольку ваша Роль уже дала бонус к <strong>{TRANSLATIONS[role.attr]}</strong>, ваше Амплуа автоматически повышает <strong>{TRANSLATIONS[tropeAttr]}</strong>.</p>
+                                            ) : (
+                                                <div className="flex gap-4">
+                                                    {trope.attrs.map(attr => (
+                                                        <button key={attr} onClick={() => setTropeAttr(attr)} className={`px-6 py-3 rounded-xl font-bold border-2 transition-all ${tropeAttr === attr ? 'border-red-600 bg-red-600 text-white' : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-red-400'}`}>
+                                                            {TRANSLATIONS[attr]}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <h3 className="text-lg font-bold mb-4">Выберите Черту Амплуа (1 шт.)</h3>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                {trope.feats.map(featId => renderFeatCard(featId, tropeFeat === featId, () => setTropeFeat(featId)))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {step === 3 && (
+                            <div className="space-y-6 animate-fadeIn">
+                                <h2 className="text-2xl font-black uppercase border-l-4 border-red-600 pl-4 mb-2">Настройка и Возраст</h2>
+                                
+                                <div className="p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
+                                    <h3 className="text-lg font-bold mb-4">Возраст Героя</h3>
+                                    <div className="flex flex-wrap gap-4">
+                                        {['Young', 'Adult', 'Old'].map(a => (
+                                            <button key={a} onClick={() => {
+                                                setAge(a);
+                                                if(a === 'Young' && roleFeats.length > 1) setRoleFeats([roleFeats[0]]);
+                                                if(a !== 'Old') setOldFeat(null);
+                                            }} className={`px-6 py-3 rounded-xl font-bold border-2 transition-all ${age === a ? 'border-red-600 bg-red-600 text-white' : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-red-400'}`}>
+                                                {a === 'Young' ? 'Молодой (Young)' : a === 'Adult' ? 'Взрослый (Adult)' : 'Старый (Old)'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="mt-4 text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+                                        {age === 'Young' && "Молодые герои берут только 1 Черту от Роли вместо 2, но получают уникальную черту «Слишком молод, чтобы умереть» и начинают с 2 очками Адреналина."}
+                                        {age === 'Adult' && "Взрослые герои находятся на пике формы. Нет ни штрафов, ни бонусов."}
+                                        {age === 'Old' && "Ветераны получают 1 дополнительную Черту из списков своей Роли или Амплуа, но начинают игру с 2 Летальными Пулями в Рулетке Смерти."}
+                                    </p>
+                                </div>
+
+                                {age === 'Old' && (
+                                    <div className="p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
+                                        <h3 className="text-lg font-bold mb-4 text-red-600">Опыт Ветерана: Выберите экстра-черту</h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {oldFeatOptions.map(featId => renderFeatCard(featId, oldFeat === featId, () => setOldFeat(featId)))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="text-lg font-bold">Свободные очки Навыков</h3>
+                                        <span className={`px-4 py-2 rounded-full font-bold text-sm ${freeSkillsSpent === 2 ? 'bg-green-100 text-green-700 dark:bg-green-900/30' : 'bg-red-100 text-red-700 dark:bg-red-900/30'}`}>
+                                            Потрачено: {freeSkillsSpent} / 2
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Распределите 2 свободных очка навыков. Максимум 3 очка на один навык.</p>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {Object.keys(SKILLS_BY_ATTR).map(attr => (
+                                            <div key={attr} className="space-y-3">
+                                                <h4 className="font-black text-gray-400 uppercase tracking-widest text-xs">{TRANSLATIONS[attr]}</h4>
+                                                {SKILLS_BY_ATTR[attr].map(skill => (
+                                                    <div key={skill} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg">
+                                                        <span className="text-sm font-semibold">{TRANSLATIONS[skill]}</span>
+                                                        <div className="flex items-center gap-3">
+                                                            <button onClick={() => handleSkillChange(skill, -1)} disabled={!freeSkills[skill]} className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-30 font-bold hover:bg-gray-300 transition-colors">-</button>
+                                                            {renderSkillDots(currentSkills[skill])}
+                                                            <button onClick={() => handleSkillChange(skill, 1)} disabled={freeSkillsSpent >= 2 || currentSkills[skill] >= 3} className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-30 font-bold hover:bg-gray-300 transition-colors">+</button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {step === 4 && (
+                            <div className="space-y-8 animate-fadeIn print:m-0">
+                                <div className="text-center print:hidden">
+                                    <h2 className="text-3xl font-black uppercase text-red-600 tracking-wider">Досье Героя</h2>
+                                </div>
+
+                                <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-xl border-4 border-gray-100 dark:border-gray-700 print:border-none print:shadow-none print:p-0">
+                                    {/* Header Sheet */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 border-b-2 border-red-600 pb-8">
+                                        <div className="space-y-4 col-span-2">
+                                            <div className="flex gap-4">
+                                                <div className="w-full">
+                                                    <label className="text-xs font-black text-red-600 uppercase tracking-widest">Роль</label>
+                                                    <div className="text-2xl font-bold uppercase">{role?.name}</div>
+                                                </div>
+                                                <div className="w-full">
+                                                    <label className="text-xs font-black text-red-600 uppercase tracking-widest">Амплуа</label>
+                                                    <div className="text-2xl font-bold uppercase">{trope?.name}</div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-black text-red-600 uppercase tracking-widest">Имя / Позывной</label>
+                                                <input type="text" className="w-full bg-transparent border-b-2 border-gray-300 dark:border-gray-600 text-xl font-bold py-1 outline-none focus:border-red-600" placeholder="Введите имя..." />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-black text-red-600 uppercase tracking-widest">Коронная фраза</label>
+                                                <input type="text" className="w-full bg-transparent border-b-2 border-gray-300 dark:border-gray-600 text-lg italic py-1 outline-none focus:border-red-600" placeholder="«Я слишком стар для этого...»" />
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 flex flex-col justify-center">
+                                            <div className="flex justify-between items-center mb-4">
+                                                <span className="font-black text-gray-500 uppercase">Адреналин</span>
+                                                <span className="text-2xl font-black text-red-600">{age === 'Young' ? 2 : 1}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center mb-4">
+                                                <span className="font-black text-gray-500 uppercase">Внимание (Spotlight)</span>
+                                                <span className="text-2xl font-black text-yellow-500">1</span>
+                                            </div>
+                                            <div className="flex justify-between items-center mb-4">
+                                                <span className="font-black text-gray-500 uppercase">Наличные</span>
+                                                <span className="text-2xl font-black text-green-600">1</span>
+                                            </div>
+                                            <div className="flex justify-between items-center border-t border-gray-300 dark:border-gray-700 pt-4 mt-2">
+                                                <span className="font-black text-gray-500 uppercase text-xs">Летальные пули</span>
+                                                <div className="flex gap-1">
+                                                    {[...Array(age === 'Old' ? 2 : 1)].map((_, i) => (
+                                                        <div key={i} className="w-4 h-6 bg-gray-800 dark:bg-gray-400 rounded-t-full rounded-b-sm" />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Stats Grid */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                                        {Object.keys(SKILLS_BY_ATTR).map(attr => (
+                                            <div key={attr} className="bg-gray-50 dark:bg-gray-900 p-4 rounded-2xl border border-gray-200 dark:border-gray-700">
+                                                <div className="flex justify-between items-center mb-4 border-b pb-2 dark:border-gray-700">
+                                                    <span className="font-black text-red-600 uppercase tracking-wider">{TRANSLATIONS[attr]}</span>
+                                                    <div className="flex gap-1">{[1,2,3].map(i => <div key={i} className={`w-3 h-3 transform rotate-45 border ${i <= currentAttributes[attr] ? 'bg-red-600 border-red-600' : 'border-gray-400'}`} />)}</div>
+                                                </div>
+                                                <div className="space-y-3">
+                                                    {SKILLS_BY_ATTR[attr].map(skill => (
+                                                        <div key={skill} className="flex justify-between items-center">
+                                                            <span className="text-sm font-semibold">{TRANSLATIONS[skill]}</span>
+                                                            {renderSkillDots(currentSkills[skill])}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Feats & Abilities */}
+                                    <div>
+                                        <h3 className="text-xl font-black uppercase border-l-4 border-red-600 pl-4 mb-4">Черты и таланты</h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {[...roleFeats, tropeFeat, oldFeat].filter(Boolean).map(featId => (
+                                                <div key={featId} className="p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700">
+                                                    <h4 className="font-bold mb-1">{FEATS_DATA[featId].name}</h4>
+                                                    <p className="text-sm text-gray-600 dark:text-gray-400">{FEATS_DATA[featId].desc}</p>
+                                                </div>
+                                            ))}
+                                            {age === 'Young' && (
+                                                <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700">
+                                                    <h4 className="font-bold mb-1">Слишком молод, чтобы умереть</h4>
+                                                    <p className="text-sm text-gray-600 dark:text-gray-400">При заполнении ячейки 'Плохо' (Bad), вы не получаете Состояние (Condition).</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Bottom Navigation */}
+                    {step > 0 && (
+                        <div className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 p-4 print:hidden z-50">
+                            <div className="max-w-4xl mx-auto flex justify-between gap-4">
+                                <button onClick={prevStep} className="flex-1 py-3 px-6 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors min-h-[48px]">
+                                    <ChevronLeft className="w-5 h-5" /> Назад
+                                </button>
+                                {step < 4 && (
+                                    <button onClick={nextStep} disabled={!canProceed()} className="flex-1 py-3 px-6 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors min-h-[48px]">
+                                        Далее <ChevronRight className="w-5 h-5" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
